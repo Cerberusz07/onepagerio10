@@ -15,9 +15,9 @@
 <div class="app">
 <aside class="sidebar">
   <div class="brand">ระบบ One Page รายงานสถานการณ์น้ำ</div><div class="sub">สำนักงานชลประทานที่ 10 • แบบกรอกข้อมูล → One Page 16:9</div>
-  <div class="tabs"><button class="tab active" data-tab="data">กรอกข้อมูล</button><button class="tab" data-tab="api">API ฝน</button></div>
+  <div class="tabs"><button class="tab active" data-tab="data">กรอกข้อมูล</button><button class="tab" data-tab="reports">รายงาน</button><button class="tab" data-tab="api">API ฝน</button></div>
   <section id="data" class="panel active">
-    <div class="group"><h3>ข้อมูลรายงาน</h3><div class="row"><div class="field"><label>วันที่รายงาน</label><input id="date" type="date"></div><div class="field"><label>ปีเพาะปลูก</label><input id="year" value="2569"></div></div></div>
+    <div class="group"><h3>ข้อมูลรายงาน</h3><div class="row"><div class="field"><label>วันที่รายงาน</label><input id="date" type="date"></div><div class="field"><label>ปีเพาะปลูก</label><input id="year" value="2569"></div></div><div id="editInfo" style="display:none;margin-top:8px;font-size:10px;color:#ffeb3b;background:#004d7a;padding:6px;border-radius:6px;">📝 กำลังแก้ไขรายงาน ID: <span id="editReportId"></span> | สร้าง: <span id="editCreatedAt"></span> | แก้ไขล่าสุด: <span id="editUpdatedAt"></span></div></div>
     <div class="group"><h3>01 • สถานการณ์ฝน</h3><div class="field"><label>ข้อมูลรายจังหวัด: จังหวัด | สถานี | ฝนสูงสุด 24 ชม. | ฝนสะสม | เทียบค่าปกติ (%)</label><textarea id="rainRows">เพชรบูรณ์ | บ้านวังขอน | 40 | 957.84 | +10.10
 อยุธยา | คลองบางบาล | 28 | 977.81 | +12.39
 ลพบุรี | อบต.ท่ามะนาว | 83 | 590.91 | -32.08
@@ -38,8 +38,11 @@
     <div class="group"><h3>06 • การให้ความช่วยเหลือ</h3><div class="row"><div class="field"><label>เครื่องผลักดันน้ำ</label><input id="push" value="4"></div><div class="field"><label>เครื่องสูบน้ำ</label><input id="pump" value="2"></div><div class="field"><label>รถบรรทุกน้ำ</label><input id="truck" value="2"></div><div class="field"><label>เครื่องสูบน้ำภัยแล้ง</label><input id="dry" value="44"></div></div></div>
     <div class="group"><h3>07 • ผลการดำเนินการกำจัดวัชพืช</h3><div class="row"><div class="field"><label>เครื่องจักร แผน (ตัน)</label><input id="wmPlan" value="1042126"></div><div class="field"><label>เครื่องจักร ผล (ตัน)</label><input id="wmAct" value="803620"></div><div class="field"><label>เครื่องจักร %</label><input id="wmPct" value="77.11"></div><div class="field"><label>แรงงาน แผน (ไร่)</label><input id="wlPlan" value="3936"></div><div class="field"><label>แรงงาน ผล (ไร่)</label><input id="wlAct" value="3062"></div><div class="field"><label>แรงงาน %</label><input id="wlPct" value="77.79"></div></div></div>
   </section>
+  <section id="reports" class="panel">
+    <div class="group"><h3>รายการรายงานที่บันทึกไว้</h3><div class="help" style="margin-bottom:10px;">คลิก "โหลด" เพื่อแก้ไขรายงานเดิม หรือ "ลบ" เพื่อลบรายงานนั้นๆ</div><div id="reportList" style="max-height:400px;overflow:auto;"></div></div>
+  </section>
   <section id="api" class="panel"><div class="group"><h3>API ฝน</h3><div class="field"><label>API Proxy URL</label><input id="apiUrl" placeholder="https://your-server/api/rain"></div><div class="field"><label>Token</label><input id="token" type="password"></div><div class="help">เวอร์ชันต้นแบบใช้ข้อมูลที่กรอกเองเป็นหลัก และปุ่ม API จะพยายามเรียก endpoint ของคุณก่อน หากไม่มี endpoint จะคงข้อมูลเดิมไว้</div></div></section>
-  <div class="actions"><button class="btn primary" id="update">อัปเดต One Page</button><button class="btn secondary" onclick="window.print()">พิมพ์ / PDF</button><button class="btn dark" id="save">บันทึกแบบร่าง</button></div>
+  <div class="actions"><button class="btn primary" id="update">อัปเดต One Page</button><button class="btn secondary" onclick="window.print()">พิมพ์ / PDF</button><button class="btn dark" id="saveBtn">💾 บันทึกใหม่</button><button class="btn dark" id="updateBtn" style="display:none;">✏️ อัปเดตข้อมูล</button><button class="btn secondary" id="cancelEdit" style="display:none;">ยกเลิกแก้ไข</button></div>
 </aside>
 <main class="preview"><div class="preview-head"><h2>ผลลัพธ์ One Page — รูปแบบเดียวกับต้นแบบ</h2><span id="state">พร้อมใช้งาน</span></div>
 <section class="sheet" id="sheet">
@@ -57,6 +60,11 @@
 <script>
 const $=id=>document.getElementById(id);const fmt=v=>Number(String(v??'').replace(/,/g,'' )||0).toLocaleString('th-TH',{maximumFractionDigits:2});
 function rows(id){return $(id).value.split(/\n/).map(x=>x.trim()).filter(Boolean).map(x=>x.split('|').map(y=>y.trim()))}
+
+// Global state for editing
+let currentEditId = null;
+let serverAvailable = true;
+
 function render(){
  const d=$('date').value?new Date($('date').value+'T00:00:00'):new Date();$('outDate').textContent=d.toLocaleDateString('th-TH',{day:'2-digit',month:'long',year:'numeric'});
  $('outRain').innerHTML=rows('rainRows').slice(0,7).map(r=>`<tr><td>${r[0]||'-'}</td><td>${r[1]||'-'}</td><td>${r[2]||'-'}</td><td>${r[3]||'-'}</td><td class="${String(r[4]).includes('-')?'neg':'pos'}">${r[4]||'-'}</td></tr>`).join('');
@@ -66,10 +74,219 @@ function render(){
  [['rp','ricePlan'],['ra','riceActual'],['rpp','ricePct'],['lp','lowPlan'],['la','lowActual'],['lpp','lowPct'],['a1po','a1p'],['a1uo','a1u'],['a1ro','a1r'],['a2po','a2p'],['a2uo','a2u'],['a2ro','a2r'],['pusho','push'],['pumpo','pump'],['trucko','truck'],['dryo','dry'],['wmp','wmPlan'],['wma','wmAct'],['wmpp','wmPct'],['wlp','wlPlan'],['wla','wlAct'],['wlpp','wlPct']].forEach(([o,i])=>$(o).textContent=fmt($(i).value)+(i.endsWith('Pct')||['ricePct','lowPct','wmPct','wlPct'].includes(i)?'%':''));
  $('state').textContent='อัปเดตแล้ว • '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
 }
-$('update').onclick=render;document.querySelectorAll('input,textarea,select').forEach(e=>e.addEventListener('input',()=>render()));
-$('save').onclick=()=>{const o={};document.querySelectorAll('#data input,#data textarea,#data select').forEach(e=>o[e.id]=e.value);localStorage.onepagev3=JSON.stringify(o);show('บันทึกแบบร่างแล้ว')};
-function show(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',1800)}
-$('apiRain').onclick=async()=>{const url=$('apiUrl').value.trim();if(!url){show('ยังไม่ได้ระบุ API Proxy — ใช้ข้อมูลที่กรอกอยู่');return}try{const res=await fetch(url,{headers:$('token').value?{Authorization:'Bearer '+$('token').value}:{}});const data=await res.json();if(data.rows) $('rainRows').value=data.rows.map(r=>Array.isArray(r)?r.join(' | '):`${r.province||''} | ${r.station||''} | ${r.rainMax||''} | ${r.rainAccum||''} | ${r.normalCompare||''}`).join('\n');render();show('ดึงข้อมูลฝนสำเร็จ')}catch(e){show('เรียก API ไม่สำเร็จ — ตรวจสอบ URL / CORS')}};
-window.addEventListener('load',()=>{const d=new Date();$('date').value=d.toISOString().slice(0,10);try{const o=JSON.parse(localStorage.onepagev3||'{}');Object.entries(o).forEach(([k,v])=>$(k)&&($(k).value=v))}catch(e){}render()});
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active')});
+
+// Collect form data
+function getFormData() {
+  return {
+    reportDate: $('date').value,
+    cropYear: $('year').value,
+    rain: rows('rainRows').map(r => ({ province: r[0], station: r[1], rainMax: parseFloat(r[2])||0, rainAccumulated: parseFloat(r[3])||0, normalCompare: r[4] })),
+    reservoir: rows('resRows').map(r => ({ sizeCategory: r[0], capacity: parseFloat(r[1])||0, volumeToday: parseFloat(r[2])||0, percentCapacity: parseFloat(r[3])||0, usableWater: parseFloat(r[4])||0, percentUsable: parseFloat(r[5])||0, inflow: parseFloat(r[6])||0, outflow: parseFloat(r[7])||0, canReceive: parseFloat(r[8])||0 })),
+    reservoirStatus: $('resStatus').value.split(';').map(x => {
+      const parts = x.trim().split(':');
+      const vals = (parts[1]||'').split('|').map(y => parseInt(y.trim())||0);
+      return { sizeCategory: parts[0].trim(), over80: vals[0]||0, range51_80: vals[1]||0, range31_50: vals[2]||0, under30: vals[3]||0 };
+    }),
+    river: rows('riverRows').map(r => ({ checkpoint: r[0], flowRate: parseFloat(r[1])||0, capacity: r[2], percent: r[3], status: r[4] })),
+    crop: { ricePlan: parseFloat($('ricePlan').value)||0, riceActual: parseFloat($('riceActual').value)||0, ricePercent: parseFloat($('ricePct').value)||0, lowlandPlan: parseFloat($('lowPlan').value)||0, lowlandActual: parseFloat($('lowActual').value)||0, lowlandPercent: parseFloat($('lowPct').value)||0 },
+    allocation: { chaoPhrayaPlan: parseFloat($('a1p').value)||0, chaoPhrayaUsed: parseFloat($('a1u').value)||0, chaoPhrayaNeeded: parseFloat($('a1r').value)||0, reservoirPlan: parseFloat($('a2p').value)||0, reservoirUsed: parseFloat($('a2u').value)||0, reservoirNeeded: parseFloat($('a2r').value)||0 },
+    assistance: { pushPumps: parseInt($('push').value)||0, waterPumps: parseInt($('pump').value)||0, waterTrucks: parseInt($('truck').value)||0, droughtPumps: parseInt($('dry').value)||0 },
+    weed: { machinePlan: parseFloat($('wmPlan').value)||0, machineActual: parseFloat($('wmAct').value)||0, machinePercent: parseFloat($('wmPct').value)||0, laborPlan: parseFloat($('wlPlan').value)||0, laborActual: parseFloat($('wlAct').value)||0, laborPercent: parseFloat($('wlPct').value)||0 }
+  };
+}
+
+// Fill form with data
+function fillFormData(data) {
+  $('date').value = data.reportDate || '';
+  $('year').value = data.cropYear || '';
+  if (data.rain) $('rainRows').value = data.rain.map(r => `${r.province||''} | ${r.station||''} | ${r.rainMax||''} | ${r.rainAccumulated||''} | ${r.normalCompare||''}`).join('\n');
+  if (data.reservoir) $('resRows').value = data.reservoir.map(r => `${r.sizeCategory||''} | ${r.capacity||''} | ${r.volumeToday||''} | ${r.percentCapacity||''} | ${r.usableWater||''} | ${r.percentUsable||''} | ${r.inflow||''} | ${r.outflow||''} | ${r.canReceive||''}`).join('\n');
+  if (data.reservoirStatus) $('resStatus').value = data.reservoirStatus.map(rs => `${rs.sizeCategory}: ${rs.over80||0} | ${rs.range51_80||0} | ${rs.range31_50||0} | ${rs.under30||0}`).join('; ');
+  if (data.river) $('riverRows').value = data.river.map(r => `${r.checkpoint||''} | ${r.flowRate||''} | ${r.capacity||''} | ${r.percent||''} | ${r.status||''}`).join('\n');
+  if (data.crop) {
+    $('ricePlan').value = data.crop.ricePlan||0; $('riceActual').value = data.crop.riceActual||0; $('ricePct').value = data.crop.ricePercent||0;
+    $('lowPlan').value = data.crop.lowlandPlan||0; $('lowActual').value = data.crop.lowlandActual||0; $('lowPct').value = data.crop.lowlandPercent||0;
+  }
+  if (data.allocation) {
+    $('a1p').value = data.allocation.chaoPhrayaPlan||0; $('a1u').value = data.allocation.chaoPhrayaUsed||0; $('a1r').value = data.allocation.chaoPhrayaNeeded||0;
+    $('a2p').value = data.allocation.reservoirPlan||0; $('a2u').value = data.allocation.reservoirUsed||0; $('a2r').value = data.allocation.reservoirNeeded||0;
+  }
+  if (data.assistance) {
+    $('push').value = data.assistance.pushPumps||0; $('pump').value = data.assistance.waterPumps||0; $('truck').value = data.assistance.waterTrucks||0; $('dry').value = data.assistance.droughtPumps||0;
+  }
+  if (data.weed) {
+    $('wmPlan').value = data.weed.machinePlan||0; $('wmAct').value = data.weed.machineActual||0; $('wmPct').value = data.weed.machinePercent||0;
+    $('wlPlan').value = data.weed.laborPlan||0; $('wlAct').value = data.weed.laborActual||0; $('wlPct').value = data.weed.laborPercent||0;
+  }
+  render();
+}
+
+// Load reports list
+async function loadReportsList() {
+  try {
+    const res = await fetch('/api/reports');
+    if (!res.ok) throw new Error('Server not available');
+    const reports = await res.json();
+    const listDiv = $('reportList');
+    if (reports.length === 0) {
+      listDiv.innerHTML = '<div style="padding:10px;color:#888;">ยังไม่มีรายงานที่บันทึกไว้</div>';
+      return;
+    }
+    listDiv.innerHTML = reports.map(r => {
+      const created = new Date(r.created_at).toLocaleString('th-TH');
+      const updated = new Date(r.updated_at).toLocaleString('th-TH');
+      return `<div style="background:#ffffff15;border:1px solid #ffffff26;border-radius:8px;padding:8px;margin-bottom:6px;"><div style="font-weight:700;font-size:12px;">📅 วันที่: ${r.report_date} | ปี: ${r.crop_year}</div><div style="font-size:9px;color:#a8d5eb;margin-top:4px;">สร้าง: ${created} | แก้ไข: ${updated}</div><div style="margin-top:6px;display:flex;gap:6px;"><button class="btn secondary" style="padding:5px 8px;font-size:10px;" onclick="loadReport(${r.id})">📖 โหลด</button><button class="btn dark" style="padding:5px 8px;font-size:10px;background:#c93020;" onclick="deleteReport(${r.id})">🗑️ ลบ</button></div></div>`;
+    }).join('');
+  } catch (e) {
+    console.log('Using localStorage fallback');
+    $('reportList').innerHTML = '<div style="padding:10px;color:#ffeb3b;">⚠️ เซิร์ฟเวอร์ไม่พร้อมใช้งาน ใช้ localStorage เท่านั้น</div>';
+  }
+}
+
+// Load single report for editing
+async function loadReport(id) {
+  try {
+    const res = await fetch(`/api/report/${id}`);
+    if (!res.ok) throw new Error('Not found');
+    const data = await res.json();
+    
+    currentEditId = id;
+    fillFormData(data);
+    
+    // Show edit info
+    $('editReportId').textContent = id;
+    $('editCreatedAt').textContent = new Date(data.report.created_at).toLocaleString('th-TH');
+    $('editUpdatedAt').textContent = new Date(data.report.updated_at).toLocaleString('th-TH');
+    $('editInfo').style.display = 'block';
+    
+    // Switch buttons
+    $('saveBtn').style.display = 'none';
+    $('updateBtn').style.display = 'inline-block';
+    $('cancelEdit').style.display = 'inline-block';
+    
+    // Switch to data tab
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    $('[data-tab="data"]').classList.add('active');
+    $('data').classList.add('active');
+    
+    show(`โหลดรายงาน ID:${id} สำเร็จ`);
+  } catch (e) {
+    show('ไม่สามารถโหลดรายงานได้');
+  }
+}
+
+// Delete report
+async function deleteReport(id) {
+  if (!confirm('ต้องการลบรายงานนี้หรือไม่?')) return;
+  try {
+    const res = await fetch(`/api/report/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Delete failed');
+    show('ลบรายงานสำเร็จ');
+    loadReportsList();
+  } catch (e) {
+    show('ไม่สามารถลบรายงานได้');
+  }
+}
+
+// Save new report
+async function saveReport() {
+  const formData = getFormData();
+  try {
+    const res = await fetch('/api/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+    if (!res.ok) throw new Error('Save failed');
+    const result = await res.json();
+    show(result.message || 'บันทึกรายงานสำเร็จ');
+    loadReportsList();
+  } catch (e) {
+    // Fallback to localStorage
+    const o = {};
+    document.querySelectorAll('#data input,#data textarea,#data select').forEach(e => o[e.id] = e.value);
+    localStorage.onepagev3 = JSON.stringify(o);
+    show('บันทึกใน localStorage (เซิร์ฟเวอร์ไม่พร้อม)');
+  }
+}
+
+// Update existing report
+async function updateReport() {
+  if (!currentEditId) return;
+  const formData = getFormData();
+  try {
+    const res = await fetch(`/api/report/${currentEditId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+    if (!res.ok) throw new Error('Update failed');
+    const result = await res.json();
+    show(result.message || 'อัปเดตรายงานสำเร็จ');
+    loadReportsList();
+  } catch (e) {
+    show('ไม่สามารถอัปเดตข้อมูลได้');
+  }
+}
+
+// Cancel edit mode
+function cancelEdit() {
+  currentEditId = null;
+  $('editInfo').style.display = 'none';
+  $('saveBtn').style.display = 'inline-block';
+  $('updateBtn').style.display = 'none';
+  $('cancelEdit').style.display = 'none';
+  // Reset to today
+  const d = new Date();
+  $('date').value = d.toISOString().slice(0, 10);
+  render();
+  show('ยกเลิกการแก้ไข');
+}
+
+$('update').onclick = render;
+document.querySelectorAll('input,textarea,select').forEach(e => e.addEventListener('input', () => render()));
+
+$('saveBtn').onclick = saveReport;
+$('updateBtn').onclick = updateReport;
+$('cancelEdit').onclick = cancelEdit;
+
+function show(t) {
+  $('toast').textContent = t;
+  $('toast').style.display = 'block';
+  setTimeout(() => $('toast').style.display = 'none', 1800);
+}
+
+$('apiRain').onclick = async () => {
+  const url = $('apiUrl').value.trim();
+  if (!url) { show('ยังไม่ได้ระบุ API Proxy — ใช้ข้อมูลที่กรอกอยู่'); return; }
+  try {
+    const res = await fetch(url, { headers: $('token').value ? { Authorization: 'Bearer ' + $('token').value } : {} });
+    const data = await res.json();
+    if (data.rows) $('rainRows').value = data.rows.map(r => Array.isArray(r) ? r.join(' | ') : `${r.province||''} | ${r.station||''} | ${r.rainMax||''} | ${r.rainAccum||''} | ${r.normalCompare||''}`).join('\n');
+    render();
+    show('ดึงข้อมูลฝนสำเร็จ');
+  } catch (e) {
+    show('เรียก API ไม่สำเร็จ — ตรวจสอบ URL / CORS');
+  }
+};
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  $(b.dataset.tab).classList.add('active');
+  if (b.dataset.tab === 'reports') loadReportsList();
+});
+
+window.addEventListener('load', () => {
+  const d = new Date();
+  $('date').value = d.toISOString().slice(0, 10);
+  try {
+    const o = JSON.parse(localStorage.onepagev3 || '{}');
+    Object.entries(o).forEach(([k, v]) => $(k) && ($(k).value = v));
+  } catch (e) {}
+  render();
+});
 </script></body></html>
